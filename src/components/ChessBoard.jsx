@@ -133,15 +133,20 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
         console.log('Stockfish:', e.data);
         
         if (e.data.includes('uciok')) {
-          // Set skill level and ELO limit after UCI OK
+          console.log('✅ UCI OK received');
+          console.log('📤 Sending isready command');
+          worker.postMessage('isready');
+        } else if (e.data === 'readyok' || e.data.trim() === 'readyok') {
+          console.log('✅ Stockfish is ready - received readyok');
+          worker.postMessage('ucinewgame');
+          
+          // Set difficulty options AFTER ready
           if (gameState.difficulty && gameState.difficulty < 3200) {
             // Calculate Skill Level (0-20) based on ELO rating
-            // Stockfish's UCI_Elo ranges from 1320-3190
-            // Skill Level provides additional weakening for lower ratings
-            let skillLevel = 20; // Default to maximum
+            let skillLevel = 20;
             
             if (gameState.difficulty <= 800) {
-              skillLevel = 0; // Weakest
+              skillLevel = 0;
             } else if (gameState.difficulty <= 1000) {
               skillLevel = 1;
             } else if (gameState.difficulty <= 1200) {
@@ -158,28 +163,17 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
               skillLevel = 17;
             }
             
-            // Configure engine parameters for limited strength
-            worker.postMessage('setoption name Hash value 16');
-            worker.postMessage('setoption name Threads value 1');
+            // Set options for limited strength
             worker.postMessage('setoption name UCI_LimitStrength value true');
             worker.postMessage(`setoption name UCI_Elo value ${gameState.difficulty}`);
-            
-            // Set Skill Level for additional weakening at lower levels
             if (skillLevel < 20) {
               worker.postMessage(`setoption name Skill Level value ${skillLevel}`);
             }
             
             console.log(`✅ Set difficulty to ${gameState.difficulty} ELO (Skill Level: ${skillLevel})`);
-          } else {
-            // Full strength configuration
-            worker.postMessage('setoption name Hash value 128');
-            worker.postMessage('setoption name Threads value 1');
-            worker.postMessage('setoption name UCI_LimitStrength value false');
-            worker.postMessage('setoption name Skill Level value 20');
-            console.log('✅ Set to maximum strength');
           }
+          
           setStockfishReady(true);
-          worker.postMessage('isready');
         } else if (e.data.startsWith('info') && e.data.includes('score')) {
           // Parse evaluation from Stockfish info lines
           const cpMatch = e.data.match(/score cp (-?\d+)/);
