@@ -1,16 +1,93 @@
-# React + Vite
+# Chess Playground
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, fully-functional chess application built with React and Vite, featuring Stockfish engine integration for AI gameplay.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- ✨ **Complete Chess Rules Implementation**
+  - All piece movements (Pawn, Rook, Knight, Bishop, Queen, King)
+  - Special moves: Castling, En Passant, Pawn Promotion
+  - Check, Checkmate, and Stalemate detection
+  - Move validation and legal move highlighting
 
-## React Compiler
+- 🎮 **Multiple Game Modes**
+  - Play against yourself (practice mode)
+  - Play against a friend (local multiplayer)
+  - Play against Stockfish AI (computer opponent)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- 🎨 **Modern UI Design**
+  - Classic wooden chess board aesthetic
+  - Responsive sidebar with game controls
+  - Move history tracker
+  - Real-time game status updates
+  - Board flipping for black pieces
 
-## Expanding the ESLint configuration
+- 🤖 **Stockfish Integration**
+  - Play against one of the strongest chess engines
+  - Choose your color (White or Black)
+  - Board automatically flips when playing as Black
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/ElyesD1/Chess-App.git
+cd Chess-App
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. (Optional) Install Stockfish engine:
+```bash
+brew install stockfish
+```
+
+4. Run the development server:
+```bash
+npm run dev
+```
+
+## How to Play
+
+1. **New Game**: Click "New Game" to start
+2. **Select Mode**: Choose between:
+   - Play against yourself
+   - Play against a friend
+   - Play against computer (Stockfish)
+3. **Choose Color** (Computer mode): Select White or Black
+4. **Make Moves**: Click a piece to see valid moves (green dots), click destination to move
+5. **Game Controls**: Use "Restart Game" to reset the current game
+
+## Technologies
+
+- React 18
+- Vite
+- Stockfish Chess Engine
+- CSS3 (Custom styling)
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## License
+
+MIT
+
+## Author
+
+Elyes Darouich

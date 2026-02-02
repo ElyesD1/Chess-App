@@ -5,6 +5,59 @@
   min-height: 100vh;
   padding: 0 30px;
   background: linear-gradient(135deg, #2c2416 0%, #3d3428 50%, #2c2416 100%);
+  gap: 0;
+}
+
+/* Evaluation Bar */
+.evaluation-bar-container {
+  display: flex;
+  flex-direction: column;
+  margin-right: 15px;
+}
+
+.evaluation-bar {
+  width: 32px;
+  height: 640px; /* 8 squares * 80px */
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column-reverse;
+  position: relative;
+}
+
+.eval-white {
+  background: linear-gradient(180deg, #ffffff 0%, #e8e8e8 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px 0;
+  transition: height 0.3s ease;
+}
+
+.eval-black {
+  background: linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 100%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8px 0;
+  transition: height 0.3s ease;
+}
+
+.eval-text {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.eval-white .eval-text {
+  color: #000;
+}
+
+.eval-black .eval-text {
+  color: #fff;
 }
 
 .board-wrapper {
@@ -101,6 +154,159 @@
 
 .square:hover .piece {
   transform: scale(1.05);
+}
+
+/* Last move highlighting */
+.square.last-move {
+  position: relative;
+}
+
+.square.last-move::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 0, 0.35);
+  pointer-events: none;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Check highlighting */
+.square.king-in-check {
+  position: relative;
+  animation: checkPulse 1.5s ease-in-out infinite;
+}
+
+.square.king-in-check::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 50, 50, 0.6), rgba(255, 50, 50, 0.3));
+  pointer-events: none;
+  animation: checkGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes checkPulse {
+  0%, 100% {
+    box-shadow: inset 0 0 0 0 rgba(255, 50, 50, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 0 4px rgba(255, 50, 50, 0.8);
+  }
+}
+
+@keyframes checkGlow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Checkmate highlighting */
+.square.king-checkmated {
+  position: relative;
+  animation: checkmatePulse 0.8s ease-in-out infinite;
+}
+
+.square.king-checkmated::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(200, 0, 0, 0.8), rgba(150, 0, 0, 0.5));
+  pointer-events: none;
+  animation: checkmateGlow 0.8s ease-in-out infinite;
+}
+
+@keyframes checkmatePulse {
+  0%, 100% {
+    box-shadow: inset 0 0 0 0 rgba(200, 0, 0, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 0 6px rgba(200, 0, 0, 1);
+  }
+}
+
+@keyframes checkmateGlow {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Checkmate/Stalemate Overlay */
+.checkmate-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  animation: overlayFadeIn 0.5s ease;
+  z-index: 100;
+  border-radius: 4px;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.checkmate-content {
+  text-align: center;
+  animation: contentSlideUp 0.6s ease;
+}
+
+@keyframes contentSlideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.checkmate-title {
+  font-size: 52px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 12px 0;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  letter-spacing: 2px;
+}
+
+.checkmate-text {
+  font-size: 24px;
+  color: #d4af76;
+  margin: 0;
+  font-weight: 600;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Board wrapper needs position relative for overlay */
+.board-wrapper {
+  position: relative;
 }
 
 /* File labels (a-h) */
