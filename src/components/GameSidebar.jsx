@@ -1,9 +1,23 @@
 import { useState } from 'react'
 import './GameSidebar.css'
 
-const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForward }) => {
+// Elegant chess difficulty levels
+const DIFFICULTY_LEVELS = [
+  { level: 1, elo: 800, name: 'Beginner', description: 'New to chess', color: '#8b7355' },
+  { level: 2, elo: 1000, name: 'Casual', description: 'Learning the game', color: '#a0826d' },
+  { level: 3, elo: 1200, name: 'Intermediate', description: 'Knows basic tactics', color: '#b8956f' },
+  { level: 4, elo: 1400, name: 'Advanced', description: 'Experienced player', color: '#d4af76' },
+  { level: 5, elo: 1600, name: 'Strong', description: 'Club player', color: '#c9a961' },
+  { level: 6, elo: 1800, name: 'Expert', description: 'Tournament level', color: '#b8935c' },
+  { level: 7, elo: 2200, name: 'Master', description: 'Very strong', color: '#a67c52' },
+  { level: 8, elo: 3200, name: 'Maximum', description: 'Full engine power', color: '#8b6639' }
+];
+
+const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForward, onDifficultyChange }) => {
   const [showGameModeSelect, setShowGameModeSelect] = useState(false);
   const [showColorSelect, setShowColorSelect] = useState(false);
+  const [showDifficultySelect, setShowDifficultySelect] = useState(false);
+  const [selectedDifficulty, setSelectedDifficulty] = useState(2); // Default: Level 3 (Intermediate)
 
   const movesToTakeback = gameState.gameMode === 'computer' ? 2 : 1;
   const canTakeback = gameState.currentStateIndex >= movesToTakeback - 1;
@@ -52,23 +66,44 @@ const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForwar
   const handleGameModeSelect = (mode) => {
     if (mode === 'computer') {
       setShowGameModeSelect(false);
-      setShowColorSelect(true);
+      setShowDifficultySelect(true);
     } else {
       setShowGameModeSelect(false);
       setShowColorSelect(false);
+      setShowDifficultySelect(false);
       onNewGame(mode);
     }
+  };
+
+  const handleDifficultySelect = () => {
+    setShowDifficultySelect(false);
+    setShowColorSelect(true);
   };
 
   const handleColorSelect = (color) => {
     setShowColorSelect(false);
     setShowGameModeSelect(false);
-    onNewGame('computer', color);
+    setShowDifficultySelect(false);
+    const difficulty = DIFFICULTY_LEVELS[selectedDifficulty];
+    onNewGame('computer', color, difficulty.elo);
+  };
+
+  const handleDifficultyChange = (index) => {
+    setSelectedDifficulty(index);
+    if (gameState.gameMode === 'computer' && onDifficultyChange) {
+      onDifficultyChange(DIFFICULTY_LEVELS[index].elo);
+    }
   };
 
   const handleCancelSelection = () => {
     setShowGameModeSelect(false);
     setShowColorSelect(false);
+    setShowDifficultySelect(false);
+  };
+
+  const handleBackFromColor = () => {
+    setShowColorSelect(false);
+    setShowDifficultySelect(true);
   };
 
   const pieceValues = {
@@ -165,21 +200,71 @@ const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForwar
           <div className="game-mode-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Select Game Mode</h3>
             <button className="mode-btn" onClick={() => handleGameModeSelect('self')}>
-              <span className="mode-icon">♟️</span>
-              <span className="mode-title">Play Against Yourself</span>
-              <span className="mode-desc">Practice and analyze</span>
+              <div className="mode-header">
+                <span className="mode-title">Practice Mode</span>
+              </div>
+              <span className="mode-desc">Analyze and practice positions</span>
             </button>
             <button className="mode-btn" onClick={() => handleGameModeSelect('friend')}>
-              <span className="mode-icon">👥</span>
-              <span className="mode-title">Play Against Friend</span>
-              <span className="mode-desc">Local multiplayer</span>
+              <div className="mode-header">
+                <span className="mode-title">Two Players</span>
+              </div>
+              <span className="mode-desc">Local multiplayer game</span>
             </button>
             <button className="mode-btn" onClick={() => handleGameModeSelect('computer')}>
-              <span className="mode-icon">🤖</span>
-              <span className="mode-title">Play Against Computer</span>
-              <span className="mode-desc">Challenge Stockfish AI</span>
+              <div className="mode-header">
+                <span className="mode-title">Play Computer</span>
+              </div>
+              <span className="mode-desc">Challenge the engine</span>
             </button>
             <button className="cancel-btn" onClick={handleCancelSelection}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showDifficultySelect && (
+        <div className="modal-overlay" onClick={handleCancelSelection}>
+          <div className="difficulty-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Engine Difficulty</h3>
+            <div className="difficulty-info">
+              <div className="difficulty-header">
+                <div className="difficulty-level-display">
+                  <span className="level-number">{DIFFICULTY_LEVELS[selectedDifficulty].level}</span>
+                </div>
+                <div className="difficulty-text">
+                  <div className="difficulty-name">{DIFFICULTY_LEVELS[selectedDifficulty].name}</div>
+                  <div className="difficulty-description">{DIFFICULTY_LEVELS[selectedDifficulty].description}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="difficulty-slider-container">
+              <input 
+                type="range" 
+                min="0" 
+                max={DIFFICULTY_LEVELS.length - 1}
+                value={selectedDifficulty}
+                onChange={(e) => handleDifficultyChange(parseInt(e.target.value))}
+                className="difficulty-slider"
+              />
+              <div className="difficulty-labels">
+                {DIFFICULTY_LEVELS.map((level, index) => (
+                  <div 
+                    key={index} 
+                    className={`difficulty-label ${index === selectedDifficulty ? 'active' : ''}`}
+                    onClick={() => handleDifficultyChange(index)}
+                  >
+                    <div className="label-level">{level.level}</div>
+                    <div className="label-name">{level.name}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="difficulty-actions">
+              <button className="cancel-btn" onClick={handleCancelSelection}>Cancel</button>
+              <button className="confirm-btn" onClick={handleDifficultySelect}>Continue</button>
+            </div>
           </div>
         </div>
       )}
@@ -189,16 +274,18 @@ const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForwar
           <div className="game-mode-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Choose Your Color</h3>
             <button className="mode-btn color-btn" onClick={() => handleColorSelect('White')}>
-              <span className="mode-icon">⚪</span>
-              <span className="mode-title">Play as White</span>
+              <div className="mode-header">
+                <span className="mode-title">Play as White</span>
+              </div>
               <span className="mode-desc">You move first</span>
             </button>
             <button className="mode-btn color-btn" onClick={() => handleColorSelect('Black')}>
-              <span className="mode-icon">⚫</span>
-              <span className="mode-title">Play as Black</span>
+              <div className="mode-header">
+                <span className="mode-title">Play as Black</span>
+              </div>
               <span className="mode-desc">Computer moves first</span>
             </button>
-            <button className="cancel-btn" onClick={handleCancelSelection}>Back</button>
+            <button className="cancel-btn" onClick={handleBackFromColor}>Back</button>
           </div>
         </div>
       )}
@@ -219,6 +306,25 @@ const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForwar
           )}
         </div>
       </div>
+
+      {gameState.gameMode === 'computer' && gameState.difficulty && (
+        <div className="current-difficulty">
+          <h3>Engine Difficulty</h3>
+          <div className="difficulty-display">
+            <div className="difficulty-badge">
+              <span className="badge-number">{DIFFICULTY_LEVELS.find(d => d.elo === gameState.difficulty)?.level || '?'}</span>
+            </div>
+            <div className="difficulty-details">
+              <div className="difficulty-level-name">
+                {DIFFICULTY_LEVELS.find(d => d.elo === gameState.difficulty)?.name || 'Custom'}
+              </div>
+              <div className="difficulty-level-desc">
+                {DIFFICULTY_LEVELS.find(d => d.elo === gameState.difficulty)?.description || 'AI opponent'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="game-info">
         <h3>How to Play</h3>

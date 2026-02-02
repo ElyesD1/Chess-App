@@ -14,17 +14,18 @@ function App() {
       White: { king: false, rookKingside: false, rookQueenside: false },
       Black: { king: false, rookKingside: false, rookQueenside: false }
     },
-    gameMode: 'self', // self, friend, computer
+    gameMode: null, // null = welcome screen, self, friend, computer
     playerColor: 'White', // For computer mode
     isFlipped: false,
     gameId: Date.now(), // Add unique ID for each game
     stateHistory: [], // Full state snapshots for takeback/forward
     currentStateIndex: -1, // Current position in history (-1 = initial)
     capturedPieces: { White: [], Black: [] }, // Track captured pieces
-    evaluation: 0 // Stockfish evaluation in centipawns (positive = white advantage)
+    evaluation: 0, // Stockfish evaluation in centipawns (positive = white advantage)
+    difficulty: 1200 // Computer difficulty in ELO rating
   });
 
-  const handleNewGame = (mode = 'self', playerColor = 'White') => {
+  const handleNewGame = (mode = 'self', playerColor = 'White', difficulty = 1200) => {
     const isFlipped = mode === 'computer' && playerColor === 'Black';
     
     setGameState({
@@ -44,12 +45,13 @@ function App() {
       stateHistory: [],
       currentStateIndex: -1,
       capturedPieces: { White: [], Black: [] },
-      evaluation: 0
+      evaluation: 0,
+      difficulty: difficulty
     });
   };
 
   const handleRestartGame = () => {
-    handleNewGame(gameState.gameMode, gameState.playerColor);
+    handleNewGame(gameState.gameMode, gameState.playerColor, gameState.difficulty);
   };
 
   const handleTakeback = () => {
@@ -82,7 +84,8 @@ function App() {
         gameMode: gameState.gameMode,
         playerColor: gameState.playerColor,
         isFlipped: gameState.isFlipped,
-        gameId: gameState.gameId
+        gameId: gameState.gameId,
+        difficulty: gameState.difficulty
       });
     }
   };
@@ -102,8 +105,19 @@ function App() {
         gameMode: gameState.gameMode,
         playerColor: gameState.playerColor,
         isFlipped: gameState.isFlipped,
-        gameId: gameState.gameId
+        gameId: gameState.gameId,
+        difficulty: gameState.difficulty
       });
+    }
+  };
+
+  const handleDifficultyChange = (newDifficulty) => {
+    if (gameState.gameMode === 'computer') {
+      setGameState(prevState => ({
+        ...prevState,
+        difficulty: newDifficulty,
+        gameId: Date.now() // Trigger Stockfish re-initialization with new difficulty
+      }));
     }
   };
 
@@ -116,6 +130,7 @@ function App() {
           onRestartGame={handleRestartGame}
           onTakeback={handleTakeback}
           onForward={handleForward}
+          onDifficultyChange={handleDifficultyChange}
         />
         <div className="main-content">
           <ChessBoard 

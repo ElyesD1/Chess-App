@@ -43,6 +43,8 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
   const [lastMove, setLastMove] = useState(null);
   const [animatingMove, setAnimatingMove] = useState(null);
   const [currentEvaluation, setCurrentEvaluation] = useState(0);
+  const [showPromotionDialog, setShowPromotionDialog] = useState(false);
+  const [promotionMove, setPromotionMove] = useState(null);
   const gameStateRef = useRef(gameState);
   const expectedMoveIdRef = useRef(0); // Track expected move ID to prevent stale moves
 
@@ -123,7 +125,7 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
   // Initialize Stockfish when in computer mode
   useEffect(() => {
     if (gameState.gameMode === 'computer') {
-      console.log('Initializing Stockfish for game:', gameState.gameId);
+      console.log('Initializing Stockfish for game:', gameState.gameId, 'Difficulty:', gameState.difficulty);
       // Use the JavaScript version (more reliable than WASM)
       const worker = new Worker('/stockfish.js');
       
@@ -131,6 +133,51 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
         console.log('Stockfish:', e.data);
         
         if (e.data.includes('uciok')) {
+          // Set skill level and ELO limit after UCI OK
+          if (gameState.difficulty && gameState.difficulty < 3200) {
+            // Calculate Skill Level (0-20) based on ELO rating
+            // Stockfish's UCI_Elo ranges from 1320-3190
+            // Skill Level provides additional weakening for lower ratings
+            let skillLevel = 20; // Default to maximum
+            
+            if (gameState.difficulty <= 800) {
+              skillLevel = 0; // Weakest
+            } else if (gameState.difficulty <= 1000) {
+              skillLevel = 1;
+            } else if (gameState.difficulty <= 1200) {
+              skillLevel = 3;
+            } else if (gameState.difficulty <= 1400) {
+              skillLevel = 5;
+            } else if (gameState.difficulty <= 1600) {
+              skillLevel = 8;
+            } else if (gameState.difficulty <= 1800) {
+              skillLevel = 11;
+            } else if (gameState.difficulty <= 2000) {
+              skillLevel = 14;
+            } else if (gameState.difficulty <= 2200) {
+              skillLevel = 17;
+            }
+            
+            // Configure engine parameters for limited strength
+            worker.postMessage('setoption name Hash value 16');
+            worker.postMessage('setoption name Threads value 1');
+            worker.postMessage('setoption name UCI_LimitStrength value true');
+            worker.postMessage(`setoption name UCI_Elo value ${gameState.difficulty}`);
+            
+            // Set Skill Level for additional weakening at lower levels
+            if (skillLevel < 20) {
+              worker.postMessage(`setoption name Skill Level value ${skillLevel}`);
+            }
+            
+            console.log(`✅ Set difficulty to ${gameState.difficulty} ELO (Skill Level: ${skillLevel})`);
+          } else {
+            // Full strength configuration
+            worker.postMessage('setoption name Hash value 128');
+            worker.postMessage('setoption name Threads value 1');
+            worker.postMessage('setoption name UCI_LimitStrength value false');
+            worker.postMessage('setoption name Skill Level value 20');
+            console.log('✅ Set to maximum strength');
+          }
           setStockfishReady(true);
           worker.postMessage('isready');
         } else if (e.data.startsWith('info') && e.data.includes('score')) {
@@ -193,7 +240,7 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
       setStockfishReady(false);
       setIsThinking(false);
     }
-  }, [gameState.gameMode, gameState.gameId]);
+  }, [gameState.gameMode, gameState.gameId, gameState.difficulty]);
 
   // Make computer move if it's computer's turn
   useEffect(() => {
@@ -219,14 +266,32 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
 
     const currentGameState = gameStateRef.current;
     const fen = boardToFen(currentGameState.board, currentGameState.currentPlayer, currentGameState);
-    console.log('Requesting move for FEN:', fen);
+    const difficulty = currentGameState.difficulty || 1200;
+    console.log('Requesting move for FEN:', fen, 'at difficulty:', difficulty);
+    
+    // Use depth based on difficulty - shallower for easier levels
+    // Combined with UCI_Elo and Skill Level for proper strength limitation
+    let searchDepth = 15; // Default for strong levels
+    if (difficulty <= 1000) {
+      searchDepth = 5;  // Very shallow for beginners
+    } else if (difficulty <= 1200) {
+      searchDepth = 8;  // Shallow for casual
+    } else if (difficulty <= 1400) {
+      searchDepth = 10; // Moderate for intermediate
+    } else if (difficulty <= 1600) {
+      searchDepth = 11; // Slightly deeper
+    } else if (difficulty <= 1800) {
+      searchDepth = 12; // Getting stronger
+    } else if (difficulty <= 2200) {
+      searchDepth = 13; // Strong
+    }
     
     setIsThinking(true);
     // Attach current moveId to the worker so the callback can check it
     stockfishWorker.moveId = expectedMoveIdRef.current;
-    // Send position and go command to Stockfish
+    // Send position and go command to Stockfish with appropriate depth
     stockfishWorker.postMessage('position fen ' + fen);
-    stockfishWorker.postMessage('go depth 15');
+    stockfishWorker.postMessage(`go depth ${searchDepth}`);
   };
 
   const executeMove = (from, to, promotion) => {
@@ -394,6 +459,14 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
     }
   }, [gameState.board]);
 
+  const handlePromotionSelect = (piece) => {
+    if (promotionMove) {
+      executeMove(promotionMove.from, promotionMove.to, piece);
+      setShowPromotionDialog(false);
+      setPromotionMove(null);
+    }
+  };
+
   const handleSquareClick = (row, col) => {
     // Don't allow moves if it's computer's turn
     if (gameState.gameMode === 'computer' && gameState.currentPlayer !== gameState.playerColor) {
@@ -453,9 +526,22 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
 
       // Try to make the move
       if (isValidMove(board, from, to, gameState.currentPlayer, gameState)) {
-        executeMove(from, to);
-        setSelectedSquare(null);
-        setValidMoves([]);
+        // Check if this is a pawn promotion
+        const movingPiece = board[from.row][from.col];
+        const isPromotion = movingPiece.piece === 'Pawn' && (to.row === 0 || to.row === 7);
+        
+        if (isPromotion) {
+          // Show promotion dialog
+          setPromotionMove({ from, to });
+          setShowPromotionDialog(true);
+          setSelectedSquare(null);
+          setValidMoves([]);
+        } else {
+          // Execute move normally
+          executeMove(from, to);
+          setSelectedSquare(null);
+          setValidMoves([]);
+        }
       } else {
         // Invalid move, deselect
         setSelectedSquare(null);
@@ -626,6 +712,59 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
           ))}
           <div className="corner"></div>
         </div>
+
+        {/* Welcome Overlay - shown when no game is active */}
+        {gameState.gameMode === null && (
+          <div className="welcome-overlay">
+            <div className="welcome-content">
+              <div className="welcome-icon">♔</div>
+              <h2 className="welcome-title">Welcome to Chess</h2>
+              <p className="welcome-subtitle">Click "New Game" in the sidebar to start playing</p>
+              <div className="welcome-arrow">←</div>
+              <p className="welcome-hint">Choose from Practice, Two Players, or Play Computer</p>
+            </div>
+          </div>
+        )}
+
+        {/* Pawn Promotion Dialog */}
+        {showPromotionDialog && promotionMove && (
+          <div className="promotion-overlay">
+            <div className="promotion-dialog">
+              <h3 className="promotion-title">Choose Promotion</h3>
+              <div className="promotion-pieces">
+                <div className="promotion-piece" onClick={() => handlePromotionSelect('Q')}>
+                  <img 
+                    src={pieceImages[`${gameState.currentPlayer}-Queen`]} 
+                    alt="Queen" 
+                  />
+                  <span>Queen</span>
+                </div>
+                <div className="promotion-piece" onClick={() => handlePromotionSelect('R')}>
+                  <img 
+                    src={pieceImages[`${gameState.currentPlayer}-Rook`]} 
+                    alt="Rook" 
+                  />
+                  <span>Rook</span>
+                </div>
+                <div className="promotion-piece" onClick={() => handlePromotionSelect('B')}>
+                  <img 
+                    src={pieceImages[`${gameState.currentPlayer}-Bishop`]} 
+                    alt="Bishop" 
+                  />
+                  <span>Bishop</span>
+                </div>
+                <div className="promotion-piece" onClick={() => handlePromotionSelect('N')}>
+                  <img 
+                    src={pieceImages[`${gameState.currentPlayer}-Knight`]} 
+                    alt="Knight" 
+                  />
+                  <span>Knight</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Checkmate Overlay */}
         {gameState.gameStatus === 'checkmate' && (
           <div className="checkmate-overlay">
