@@ -9,9 +9,7 @@ app.use(cors());
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? ["https://chessappelyesd.vercel.app", "https://*.vercel.app"]
-      : "http://localhost:5173",
+    origin: process.env.CORS_ORIGIN || '*',
     methods: ["GET", "POST"],
     credentials: true
   }

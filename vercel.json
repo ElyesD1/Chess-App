@@ -2,10 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -15,10 +11,6 @@
   ],
   "routes": [
     {
-      "src": "/socket.io/(.*)",
-      "dest": "/api/socketio"
-    },
-    {
       "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|wasm|ico))",
       "dest": "/dist/$1"
     },
@@ -26,5 +18,8 @@
       "src": "/(.*)",
       "dest": "/dist/index.html"
     }
-  ]
+  ],
+  "env": {
+    "VITE_SOCKET_URL": "@socket_url"
+  }
 }

@@ -13,16 +13,16 @@ class SocketService {
       return this.socket;
     }
 
-    // Use production URL if in production, otherwise localhost
-    const url = serverUrl || (import.meta.env.PROD 
-      ? window.location.origin 
-      : 'http://localhost:3001');
+    // Use environment variable or fallback
+    const url = serverUrl || import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+
+    console.log('🔌 Connecting to Socket.io server:', url);
 
     this.socket = io(url, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 10
     });
 
     this.socket.on('connect', () => {
