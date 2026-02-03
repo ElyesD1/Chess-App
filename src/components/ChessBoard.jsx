@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import './ChessBoard.css'
 import { isValidMove, makeMove, isKingInCheck, isCheckmate, isStalemate } from '../utils/chessRules'
 import { boardToFen, uciToMove } from '../utils/fenConverter'
+import { hasInsufficientMaterial } from '../utils/gameRules'
+import socketService from '../utils/socketService'
+import GameClock from './GameClock'
 
 // Import all piece images
 import BlackRook from '../assets/Black-Rook.png'
@@ -33,6 +36,9 @@ const pieceImages = {
 };
 
 const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
+  // Debug: Log gameState on every render
+  console.log('🎮 ChessBoard render - isFlipped:', gameState.isFlipped, 'playerColor:', gameState.playerColor, 'gameMode:', gameState.gameMode);
+  
   const [selectedSquare, setSelectedSquare] = useState(null);
   const [validMoves, setValidMoves] = useState([]);
   const [stockfishWorker, setStockfishWorker] = useState(null);
@@ -45,6 +51,8 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
   const [currentEvaluation, setCurrentEvaluation] = useState(0);
   const [showPromotionDialog, setShowPromotionDialog] = useState(false);
   const [promotionMove, setPromotionMove] = useState(null);
+  const [playerTime, setPlayerTime] = useState(600000); // 10 minutes
+  const [opponentTime, setOpponentTime] = useState(600000);
   const gameStateRef = useRef(gameState);
   const expectedMoveIdRef = useRef(0); // Track expected move ID to prevent stale moves
 
@@ -252,6 +260,101 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
     }
   }, [gameState.currentPlayer, gameState.gameMode, gameState.currentStateIndex, stockfishWorker, stockfishReady]);
 
+  // Online mode: Setup socket listeners
+  useEffect(() => {
+    if (gameState.gameMode === 'online' && gameState.roomId) {
+      console.log('Setting up online game listeners');
+      
+      // Update local clocks from gameState
+      setPlayerTime(gameState.playerTime);
+      setOpponentTime(gameState.opponentTime);
+
+      // Listen for opponent moves
+      const handleOpponentMove = (data) => {
+        console.log('=== OPPONENT MOVE RECEIVED ===');
+        console.log('Opponent move data:', data);
+        console.log('Move from:', data.move.from, 'to:', data.move.to);
+        console.log('My isFlipped state BEFORE applying opponent move:', gameStateRef.current.isFlipped);
+        console.log('My playerColor:', gameStateRef.current.playerColor);
+        
+        // Update opponent time
+        setOpponentTime(data.timeLeft);
+        
+        // Apply the move from opponent - use the current gameStateRef
+        if (data.move && data.move.from && data.move.to) {
+          console.log('Executing opponent move...');
+          executeMove(data.move.from, data.move.to, data.move.promotion, true); // Pass true to indicate opponent move
+        }
+      };
+
+      socketService.onOpponentMove(handleOpponentMove);
+
+      // Listen for move confirmation (time updates)
+      socketService.onMoveConfirmed((data) => {
+        console.log('Move confirmed, time left:', data.timeLeft);
+        setPlayerTime(data.timeLeft);
+      });
+
+      // Listen for game over
+      socketService.onGameOver((data) => {
+        console.log('Game over:', data);
+        
+        let message = '';
+        if (data.result === 'checkmate') {
+          message = `Checkmate! ${data.winner} wins!`;
+        } else if (data.result === 'timeout') {
+          message = `Time's up! ${data.winner} wins by timeout!`;
+        } else if (data.result === 'resignation') {
+          message = `${data.winner} wins by resignation!`;
+        } else if (data.result === 'draw') {
+          if (data.reason === 'timeout-insufficient-material') {
+            message = 'Draw! Timeout with insufficient material to checkmate.';
+          } else {
+            message = 'Game drawn!';
+          }
+        }
+        
+        setTimeout(() => {
+          alert(message);
+        }, 500);
+      });
+
+      // Listen for opponent disconnect
+      socketService.onOpponentDisconnected((data) => {
+        console.log('Opponent disconnected');
+        setTimeout(() => {
+          alert(`Your opponent disconnected. You win!`);
+        }, 500);
+      });
+
+      return () => {
+        socketService.offOpponentMove();
+        socketService.offMoveConfirmed();
+        socketService.offGameOver();
+        socketService.offOpponentDisconnected();
+      };
+    }
+  }, [gameState.gameMode, gameState.roomId]);
+
+  // Online mode: Sync time periodically
+  useEffect(() => {
+    if (gameState.gameMode === 'online' && gameState.roomId) {
+      const interval = setInterval(() => {
+        socketService.getTime();
+      }, 5000); // Request time update every 5 seconds
+
+      socketService.onTimeUpdate((data) => {
+        setPlayerTime(data.yourTime);
+        setOpponentTime(data.opponentTime);
+      });
+
+      return () => {
+        clearInterval(interval);
+        socketService.offTimeUpdate();
+      };
+    }
+  }, [gameState.gameMode, gameState.roomId]);
+
   const makeComputerMove = async () => {
     if (!stockfishWorker || !stockfishReady || isThinking) {
       console.log('Stockfish not ready or already thinking');
@@ -288,11 +391,16 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
     stockfishWorker.postMessage(`go depth ${searchDepth}`);
   };
 
-  const executeMove = (from, to, promotion) => {
+  const executeMove = (from, to, promotion, isOpponentMove = false) => {
     const currentGameState = gameStateRef.current;
     const board = currentGameState.board;
-    console.log('executeMove called with:', { from, to, promotion });
-    console.log('Current board state:', board);
+    console.log('===== EXECUTE MOVE =====');
+    console.log('From:', from, 'To:', to, 'Promotion:', promotion);
+    console.log('Is opponent move:', isOpponentMove);
+    console.log('Current player:', currentGameState.currentPlayer);
+    console.log('My color:', currentGameState.playerColor);
+    console.log('Game mode:', currentGameState.gameMode);
+    console.log('Board state:', board);
     
     if (!board || !board[from.row] || !board[from.row][from.col]) {
       console.error('Invalid board state or piece position');
@@ -306,6 +414,9 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
     const newBoard = makeMove(board, from, to);
     const movingPiece = board[from.row][from.col];
     const capturedPiece = board[to.row][to.col];
+    
+    console.log('Moving piece:', movingPiece);
+    console.log('Captured piece:', capturedPiece);
     
     // Track captured pieces - deep copy to avoid mutation
     const newCapturedPieces = {
@@ -406,8 +517,54 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
       ...currentGameState,
       ...newState,
       stateHistory: newHistory,
-      currentStateIndex: newHistory.length - 1
+      currentStateIndex: newHistory.length - 1,
+      // Explicitly preserve game configuration
+      gameMode: currentGameState.gameMode,
+      playerColor: currentGameState.playerColor,
+      isFlipped: currentGameState.isFlipped,
+      gameId: currentGameState.gameId,
+      difficulty: currentGameState.difficulty,
+      playerTime: currentGameState.playerTime, // Preserve online times
+      opponentTime: currentGameState.opponentTime,
+      roomId: currentGameState.roomId,
+      opponentId: currentGameState.opponentId
     });
+
+    // Online mode: Send move to server (only if this is OUR move, not opponent's)
+    if (currentGameState.gameMode === 'online' && currentGameState.roomId && !isOpponentMove) {
+      console.log('============ SENDING MOVE TO SERVER ============');
+      console.log('My color:', currentGameState.playerColor);
+      console.log('Board is flipped:', currentGameState.isFlipped);
+      console.log('Move from (ACTUAL COORDS):', from, 'to (ACTUAL COORDS):', to);
+      console.log('Moving piece:', movingPiece);
+      
+      // Convert to algebraic notation for verification
+      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+      const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+      const fromSquare = files[from.col] + ranks[from.row];
+      const toSquare = files[to.col] + ranks[to.row];
+      console.log('Move in algebraic:', fromSquare, '->', toSquare);
+      console.log('==============================================');
+      
+      // Get opponent's remaining pieces to check for insufficient material
+      const opponentColor = currentGameState.playerColor === 'White' ? 'Black' : 'White';
+      const opponentPieces = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = newBoard[r][c];
+          if (piece && piece.color === opponentColor && piece.piece !== 'King') {
+            opponentPieces.push(piece.piece);
+          }
+        }
+      }
+
+      socketService.makeMove({
+        move: { from, to, promotion },
+        gameState: newState,
+        gameStatus: newStatus,
+        opponentPieces: opponentPieces
+      });
+    }
   };
   // Initial chess board setup
   const getInitialBoard = () => [
@@ -449,7 +606,15 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
 
   useEffect(() => {
     if (!gameState.board) {
-      onGameStateChange({ ...gameState, board: getInitialBoard() });
+      console.log('⚙️ Initializing board - preserving isFlipped:', gameState.isFlipped, 'playerColor:', gameState.playerColor);
+      onGameStateChange({ 
+        ...gameState, 
+        board: getInitialBoard(),
+        // Explicitly preserve critical properties
+        isFlipped: gameState.isFlipped,
+        playerColor: gameState.playerColor,
+        gameMode: gameState.gameMode
+      });
     }
   }, [gameState.board]);
 
@@ -462,13 +627,32 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
   };
 
   const handleSquareClick = (row, col) => {
+    const board = gameState.board || getInitialBoard();
+    const piece = board[row]?.[col];
+    console.log('===== SQUARE CLICKED =====');
+    console.log('Row:', row, 'Col:', col, '(ACTUAL BOARD COORDINATES)');
+    console.log('Piece at this position:', piece);
+    console.log('Board flipped:', gameState.isFlipped);
+    console.log('My color:', gameState.playerColor);
+    console.log('Current player:', gameState.currentPlayer);
+    console.log('FULL gameState.isFlipped:', gameState.isFlipped);
+    console.log('FULL gameState:', gameState);
+    
     // Don't allow moves if it's computer's turn
     if (gameState.gameMode === 'computer' && gameState.currentPlayer !== gameState.playerColor) {
       return;
     }
 
-    const board = gameState.board || getInitialBoard();
+    // Online mode: Only allow moves if it's your turn
+    if (gameState.gameMode === 'online' && gameState.currentPlayer !== gameState.playerColor) {
+      console.log('Not your turn!');
+      return;
+    }
+
     const clickedPiece = board[row][col];
+    
+    console.log('Piece at clicked position:', clickedPiece);
+    console.log('========================');
 
     // If game is over, don't allow moves
     if (gameState.gameStatus === 'checkmate' || gameState.gameStatus === 'stalemate') {
@@ -550,7 +734,7 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
 
   const board = gameState.board || getInitialBoard();
   
-  // Flip board arrays if playing as black
+  // Flip board arrays if playing as black - but keep track of original indices
   const displayBoard = gameState.isFlipped ? [...board].reverse() : board;
   const files = gameState.isFlipped 
     ? ['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a']
@@ -558,16 +742,6 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
   const ranks = gameState.isFlipped
     ? ['1', '2', '3', '4', '5', '6', '7', '8']
     : ['8', '7', '6', '5', '4', '3', '2', '1'];
-  
-  const getActualPosition = (displayRow, displayCol) => {
-    if (gameState.isFlipped) {
-      return {
-        row: 7 - displayRow,
-        col: 7 - displayCol
-      };
-    }
-    return { row: displayRow, col: displayCol };
-  };
 
   // Calculate win percentage from centipawn evaluation
   const getWinPercentage = (cpScore) => {
@@ -586,27 +760,62 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
 
   return (
     <div className="chess-container">
-      {/* Evaluation Bar */}
-      <div className="evaluation-bar-container">
-        <div className="evaluation-bar">
-          <div 
-            className="eval-white" 
-            style={{ height: `${whiteWinPercentage}%` }}
-          >
-            {whiteWinPercentage > 20 && parseFloat(evalDisplay) > 0 && (
-              <span className="eval-text">{evalDisplay}</span>
-            )}
-          </div>
-          <div 
-            className="eval-black"
-            style={{ height: `${blackWinPercentage}%` }}
-          >
-            {blackWinPercentage > 20 && parseFloat(evalDisplay) < 0 && (
-              <span className="eval-text">{Math.abs(parseFloat(evalDisplay)).toFixed(1)}</span>
-            )}
+      {/* Evaluation Bar - Hide in online mode */}
+      {gameState.gameMode !== 'online' && (
+        <div className="evaluation-bar-container">
+          <div className="evaluation-bar">
+            <div 
+              className="eval-white" 
+              style={{ height: `${whiteWinPercentage}%` }}
+            >
+              {whiteWinPercentage > 20 && parseFloat(evalDisplay) > 0 && (
+                <span className="eval-text">{evalDisplay}</span>
+              )}
+            </div>
+            <div 
+              className="eval-black"
+              style={{ height: `${blackWinPercentage}%` }}
+            >
+              {blackWinPercentage > 20 && parseFloat(evalDisplay) < 0 && (
+                <span className="eval-text">{Math.abs(parseFloat(evalDisplay)).toFixed(1)}</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Online Mode: Clocks */}
+      {gameState.gameMode === 'online' && (
+        <div className="online-clocks-container">
+          {/* Opponent's clock (top) */}
+          <div className="clock-label">
+            Opponent ({gameState.playerColor === 'White' ? 'Black' : 'White'})
+          </div>
+          <GameClock 
+            initialTime={opponentTime}
+            isActive={gameState.gameStatus === 'active' || gameState.gameStatus === 'check'}
+            playerColor={gameState.playerColor === 'White' ? 'Black' : 'White'}
+            currentPlayer={gameState.currentPlayer}
+            onTimeout={() => {
+              console.log('Opponent time ran out!');
+            }}
+          />
+          <div className="clock-divider"></div>
+          {/* Your clock (bottom) */}
+          <GameClock 
+            initialTime={playerTime}
+            isActive={gameState.gameStatus === 'active' || gameState.gameStatus === 'check'}
+            playerColor={gameState.playerColor}
+            currentPlayer={gameState.currentPlayer}
+            onTimeout={() => {
+              console.log('Your time ran out!');
+            }}
+          />
+          <div className="clock-label">
+            You ({gameState.playerColor})
+          </div>
+        </div>
+      )}
 
       <div className="board-wrapper">
         {/* Top file labels */}
@@ -633,14 +842,22 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
           {/* Chess board */}
           <div className="chess-board">
             {displayBoard.map((row, displayRow) => {
+              // When flipped, displayBoard is already reversed, so displayRow 0 = original row 7
+              // So actualRow should just map back: if flipped, actualRow = 7 - displayRow
               const actualRow = gameState.isFlipped ? 7 - displayRow : displayRow;
               const displayRowCells = gameState.isFlipped ? [...row].reverse() : row;
               
               return (
               <div key={displayRow} className="board-row">
                 {displayRowCells.map((square, displayCol) => {
+                  // When flipped, displayRowCells is already reversed, so actualCol = 7 - displayCol
                   const actualCol = gameState.isFlipped ? 7 - displayCol : displayCol;
-                  const actualPos = { row: actualRow, col: actualCol };
+                  
+                  // Debug: Log coordinate mapping for black pawns in online mode
+                  if (gameState.gameMode === 'online' && square && square.piece === 'Pawn' && square.color === 'Black' && actualCol === 4) {
+                    console.log(`🐛 Black e-pawn rendering: displayRow=${displayRow}, displayCol=${displayCol}, actualRow=${actualRow}, actualCol=${actualCol}, isFlipped=${gameState.isFlipped}, playerColor=${gameState.playerColor}`);
+                  }
+                  
                   const isLastMoveFrom = lastMove && lastMove.from.row === actualRow && lastMove.from.col === actualCol;
                   const isLastMoveTo = lastMove && lastMove.to.row === actualRow && lastMove.to.col === actualCol;
                   const isKingInCheckSquare = square && square.piece === 'King' && 
@@ -715,7 +932,7 @@ const ChessBoard = ({ gameState, onMove, onGameStateChange }) => {
               <h2 className="welcome-title">Welcome to Chess</h2>
               <p className="welcome-subtitle">Click "New Game" in the sidebar to start playing</p>
               <div className="welcome-arrow">←</div>
-              <p className="welcome-hint">Choose from Practice, Two Players, or Play Computer</p>
+              <p className="welcome-hint">Choose from Practice, Play Online, or Play Computer</p>
             </div>
           </div>
         )}

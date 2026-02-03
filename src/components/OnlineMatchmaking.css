@@ -1,0 +1,185 @@
+.matchmaking-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 12, 9, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.matchmaking-modal {
+  background: linear-gradient(180deg, #2a2118 0%, #1a1612 100%);
+  border: 2px solid rgba(212, 175, 118, 0.3);
+  border-radius: 8px;
+  padding: 50px 60px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: center;
+  min-width: 400px;
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.matchmaking-content {
+  margin-bottom: 30px;
+}
+
+.matchmaking-content h2 {
+  color: #d4af76;
+  font-size: 1.8rem;
+  margin: 20px 0 15px 0;
+  font-weight: 700;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  letter-spacing: 0.5px;
+}
+
+.matchmaking-content p {
+  color: #9a8872;
+  font-size: 1rem;
+  margin: 0 0 25px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+}
+
+.matchmaking-spinner {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 30px auto;
+  border: 3px solid rgba(107, 68, 35, 0.2);
+  border-top: 3px solid #d4af76;
+  border-radius: 50%;
+  animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  position: relative;
+}
+
+.matchmaking-spinner::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  border: 2px solid transparent;
+  border-top-color: rgba(212, 175, 118, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: spin 0.8s linear infinite reverse;
+}
+
+.matchmaking-spinner.searching {
+  border-top-color: #c9a869;
+}
+
+.matchmaking-spinner.searching::after {
+  border-top-color: rgba(201, 168, 105, 0.3);
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.match-found-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 25px auto;
+  background: linear-gradient(135deg, #6b4423 0%, #8b5a3c 100%);
+  border-radius: 50%;
+  border: 3px solid rgba(212, 175, 118, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: #d4af76;
+  box-shadow: 0 4px 20px rgba(212, 175, 118, 0.2);
+  animation: scaleIn 0.5s ease;
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.queue-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 0;
+  padding: 18px 24px;
+  background: rgba(15, 12, 9, 0.6);
+  border-radius: 6px;
+  border: 1px solid rgba(107, 68, 35, 0.3);
+}
+
+.queue-info span {
+  color: #f5e6d3;
+  font-size: 0.95rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
+}
+
+.cancel-matchmaking-btn {
+  width: 100%;
+  padding: 14px 36px;
+  background: linear-gradient(180deg, #8b4513 0%, #6b3410 100%);
+  border: 1px solid rgba(107, 68, 35, 0.5);
+  border-radius: 6px;
+  color: #f5e6d3;
+  font-size: 1rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 5px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cancel-matchmaking-btn:hover {
+  background: linear-gradient(180deg, #a0522d 0%, #7d3f16 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.cancel-matchmaking-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}

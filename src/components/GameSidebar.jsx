@@ -174,26 +174,29 @@ const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForwar
         </button>
       </div>
 
-      <div className="move-controls">
-        <button 
-          className="move-control-btn" 
-          onClick={onTakeback}
-          disabled={!canTakeback}
-          title="Takeback (Undo move)"
-        >
-          <span className="btn-icon">◀</span>
-          <span className="btn-text">Takeback</span>
-        </button>
-        <button 
-          className="move-control-btn" 
-          onClick={onForward}
-          disabled={!canForward}
-          title="Forward (Redo move)"
-        >
-          <span className="btn-text">Forward</span>
-          <span className="btn-icon">▶</span>
-        </button>
-      </div>
+      {/* Hide takeback/forward in online mode */}
+      {gameState.gameMode !== 'online' && (
+        <div className="move-controls">
+          <button 
+            className="move-control-btn" 
+            onClick={onTakeback}
+            disabled={!canTakeback}
+            title="Takeback (Undo move)"
+          >
+            <span className="btn-icon">◀</span>
+            <span className="btn-text">Takeback</span>
+          </button>
+          <button 
+            className="move-control-btn" 
+            onClick={onForward}
+            disabled={!canForward}
+            title="Forward (Redo move)"
+          >
+            <span className="btn-text">Forward</span>
+            <span className="btn-icon">▶</span>
+          </button>
+        </div>
+      )}
 
       {showGameModeSelect && (
         <div className="modal-overlay" onClick={handleCancelSelection}>
@@ -205,11 +208,11 @@ const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForwar
               </div>
               <span className="mode-desc">Analyze and practice positions</span>
             </button>
-            <button className="mode-btn" onClick={() => handleGameModeSelect('friend')}>
+            <button className="mode-btn" onClick={() => handleGameModeSelect('online')}>
               <div className="mode-header">
-                <span className="mode-title">Two Players</span>
+                <span className="mode-title">Play Online</span>
               </div>
-              <span className="mode-desc">Local multiplayer game</span>
+              <span className="mode-desc">Match with real players</span>
             </button>
             <button className="mode-btn" onClick={() => handleGameModeSelect('computer')}>
               <div className="mode-header">
@@ -333,6 +336,14 @@ const GameSidebar = ({ gameState, onNewGame, onRestartGame, onTakeback, onForwar
           <li>Click a highlighted square to move</li>
           <li>White always moves first</li>
           <li>Players alternate turns</li>
+          {gameState.gameMode === 'online' && (
+            <>
+              <li><strong>Online Rules:</strong></li>
+              <li>Each player has 10 minutes</li>
+              <li>If time runs out, you lose</li>
+              <li>Draw if opponent can't checkmate</li>
+            </>
+          )}
         </ul>
       </div>
     </div>

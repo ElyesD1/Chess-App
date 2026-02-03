@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import ChessBoard from './components/ChessBoard'
 import GameSidebar from './components/GameSidebar'
+import OnlineMatchmaking from './components/OnlineMatchmaking'
+import socketService from './utils/socketService'
 
 function App() {
   const [gameState, setGameState] = useState({
@@ -14,18 +16,30 @@ function App() {
       White: { king: false, rookKingside: false, rookQueenside: false },
       Black: { king: false, rookKingside: false, rookQueenside: false }
     },
-    gameMode: null, // null = welcome screen, self, friend, computer
-    playerColor: 'White', // For computer mode
+    gameMode: null, // null = welcome screen, self, online, computer
+    playerColor: 'White', // For computer and online modes
     isFlipped: false,
     gameId: Date.now(), // Add unique ID for each game
     stateHistory: [], // Full state snapshots for takeback/forward
     currentStateIndex: -1, // Current position in history (-1 = initial)
     capturedPieces: { White: [], Black: [] }, // Track captured pieces
     evaluation: 0, // Stockfish evaluation in centipawns (positive = white advantage)
-    difficulty: 1200 // Computer difficulty in ELO rating
+    difficulty: 1200, // Computer difficulty in ELO rating
+    // Online game specific
+    roomId: null,
+    opponentId: null,
+    playerTime: 600000, // 10 minutes in ms
+    opponentTime: 600000
   });
+  const [showMatchmaking, setShowMatchmaking] = useState(false);
 
   const handleNewGame = (mode = 'self', playerColor = 'White', difficulty = 1200) => {
+    if (mode === 'online') {
+      // Show matchmaking UI
+      setShowMatchmaking(true);
+      return;
+    }
+
     const isFlipped = mode === 'computer' && playerColor === 'Black';
     
     setGameState({
@@ -46,8 +60,56 @@ function App() {
       currentStateIndex: -1,
       capturedPieces: { White: [], Black: [] },
       evaluation: 0,
-      difficulty: difficulty
+      difficulty: difficulty,
+      roomId: null,
+      opponentId: null,
+      playerTime: 600000,
+      opponentTime: 600000
     });
+  };
+
+  const handleOnlineGameStart = (data) => {
+    console.log('🎲 Online game started - RAW DATA:', data);
+    console.log('🎲 yourColor:', data.yourColor);
+    console.log('🎲 roomId:', data.roomId);
+    console.log('🎲 opponentId:', data.opponentId);
+    setShowMatchmaking(false);
+    
+    const isFlipped = data.yourColor === 'Black';
+    console.log('🎲 Calculated isFlipped:', isFlipped, '(yourColor === Black):', data.yourColor === 'Black');
+    
+    socketService.setRoomId(data.roomId);
+    socketService.setPlayerColor(data.yourColor);
+    
+    setGameState({
+      board: null,
+      currentPlayer: 'White',
+      gameStatus: 'active',
+      moveHistory: [],
+      enPassantTarget: null,
+      hasMoved: {
+        White: { king: false, rookKingside: false, rookQueenside: false },
+        Black: { king: false, rookKingside: false, rookQueenside: false }
+      },
+      gameMode: 'online',
+      playerColor: data.yourColor,
+      isFlipped: isFlipped,
+      gameId: Date.now(),
+      stateHistory: [],
+      currentStateIndex: -1,
+      capturedPieces: { White: [], Black: [] },
+      evaluation: 0,
+      difficulty: 0,
+      roomId: data.roomId,
+      opponentId: data.opponentId,
+      playerTime: data.timeControl.initial,
+      opponentTime: data.timeControl.initial
+    });
+  };
+
+  const handleCancelMatchmaking = () => {
+    setShowMatchmaking(false);
+    socketService.disconnect();
   };
 
   const handleRestartGame = () => {
@@ -123,6 +185,12 @@ function App() {
 
   return (
     <div className="app">
+      {showMatchmaking && (
+        <OnlineMatchmaking 
+          onGameStart={handleOnlineGameStart}
+          onCancel={handleCancelMatchmaking}
+        />
+      )}
       <div className="app-container">
         <GameSidebar 
           gameState={gameState}
