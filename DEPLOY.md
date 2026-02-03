@@ -28,8 +28,12 @@ The backend needs to be deployed to a service that supports WebSockets. Vercel d
 2. Settings → Environment Variables
 3. Add new variable:
    - **Name**: `VITE_SOCKET_URL`
-   - **Value**: `https://chess-server-xyz.onrender.com` (your Render URL)
-4. Go to Deployments → Click ⋯ → Redeploy
+   - **Value**: `https://chess-server-o1fu.onrender.com` (your Render URL from logs)
+   - **IMPORTANT**: Select all three environments: Production ✓ Preview ✓ Development ✓
+4. Click "Save"
+5. Go to Deployments tab
+6. Find latest deployment → Click ⋯ (three dots) → "Redeploy"
+7. **Critical**: Make sure to check "Use existing Build Cache" is OFF for first redeploy
 
 ## Frontend (Vercel)
 

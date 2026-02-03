@@ -6,6 +6,15 @@ import cors from 'cors';
 const app = express();
 app.use(cors());
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {

@@ -22,12 +22,23 @@ class SocketService {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 10
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+      timeout: 20000,
+      autoConnect: true
     });
 
     this.socket.on('connect', () => {
       console.log('Connected to server:', this.socket.id);
       this.connected = true;
+    });
+
+    this.socket.on('reconnect_attempt', (attempt) => {
+      console.log(`Reconnection attempt ${attempt} - Server may be waking up...`);
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log('Reconnected after', attemptNumber, 'attempts');
     });
 
     this.socket.on('disconnect', () => {
