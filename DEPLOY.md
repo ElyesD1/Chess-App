@@ -1,33 +1,35 @@
 # Deploy Instructions
 
-## Backend (Socket.io Server)
+## Backend (Socket.io Server) - Render
 
-The backend needs to be deployed to a service that supports WebSockets. Vercel doesn't support persistent WebSocket connections, so use Railway:
+The backend needs to be deployed to a service that supports WebSockets. Vercel doesn't support persistent WebSocket connections.
 
-### Deploy to Railway (Free):
+### Deploy to Render (Free):
 
-1. Go to [railway.app](https://railway.app)
-2. Sign in with GitHub
-3. Click "New Project" → "Deploy from GitHub repo"
-4. Select your `Chess-App` repository
-5. Railway will auto-detect Node.js and use `server.js`
-6. After deployment, copy your Railway URL (e.g., `https://your-app.railway.app`)
-7. Go to your Vercel project settings
-8. Add environment variable:
-   - Name: `VITE_SOCKET_URL`
-   - Value: `https://your-app.railway.app` (your Railway URL)
-9. Redeploy on Vercel
+1. Go to [render.com](https://render.com) and sign in with GitHub
+2. Click "New +" → "Web Service"
+3. Connect your GitHub repository (`Chess-App`)
+4. Configure the service:
+   - **Name**: `chess-server` (or your preference)
+   - **Environment**: `Node`
+   - **Build Command**: `npm install`
+   - **Start Command**: `node server.js`
+   - **Instance Type**: Free
+5. Add environment variable:
+   - **Key**: `CORS_ORIGIN`
+   - **Value**: `https://chessappelyesd.vercel.app`
+6. Click "Create Web Service"
+7. Wait for deployment (takes 2-3 minutes)
+8. Copy your Render URL (e.g., `https://chess-server-xyz.onrender.com`)
 
-### Alternative: Deploy to Render (Free):
+### Configure Vercel Frontend:
 
-1. Go to [render.com](https://render.com)
-2. New → Web Service
-3. Connect your GitHub repo
-4. Settings:
-   - Build Command: `npm install`
-   - Start Command: `node server.js`
-5. Create Web Service
-6. Copy your Render URL and add to Vercel as `VITE_SOCKET_URL`
+1. Go to your Vercel project dashboard
+2. Settings → Environment Variables
+3. Add new variable:
+   - **Name**: `VITE_SOCKET_URL`
+   - **Value**: `https://chess-server-xyz.onrender.com` (your Render URL)
+4. Go to Deployments → Click ⋯ → Redeploy
 
 ## Frontend (Vercel)
 
