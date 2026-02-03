@@ -18,8 +18,5 @@
       "src": "/(.*)",
       "dest": "/dist/index.html"
     }
-  ],
-  "env": {
-    "VITE_SOCKET_URL": "@socket_url"
-  }
+  ]
 }
