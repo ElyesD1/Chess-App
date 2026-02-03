@@ -8,13 +8,18 @@ class SocketService {
     this.playerColor = null;
   }
 
-  connect(serverUrl = 'http://localhost:3001') {
+  connect(serverUrl) {
     if (this.socket) {
       return this.socket;
     }
 
-    this.socket = io(serverUrl, {
-      transports: ['websocket'],
+    // Use production URL if in production, otherwise localhost
+    const url = serverUrl || (import.meta.env.PROD 
+      ? window.location.origin 
+      : 'http://localhost:3001');
+
+    this.socket = io(url, {
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5
